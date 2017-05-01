@@ -46,7 +46,7 @@ public class Buffer {
    }
    /**
     * Returns Log sequence number of the buffer's page.
-    * Here the LSN is equal to block number as per implmentation
+    * Here the LSN is equal to block number as per implmentation.
     * If an integer was not stored at that location,
     * the behavior of the method is unpredictable.
     * @param offset the byte offset of the page

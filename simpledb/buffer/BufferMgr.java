@@ -1,5 +1,7 @@
 package simpledb.buffer;
 
+import java.util.Map;
+
 import simpledb.file.*;
 
 /**
@@ -128,5 +130,26 @@ public class BufferMgr {
    
    public Buffer getMapping(Block blk){
 	   return bufferMgr.getMapping(blk);
+   }
+   public void getBufferStatistics(){ // get useful statistics about the buffers
+	   int i = 0;
+	   Map<Block,Buffer> bufferPoolMap = bufferMgr.getBufferPoolMap();
+	   for(Block b:bufferPoolMap.keySet()){
+		   System.out.println("Buffer number "+ i);
+		   System.out.println("Pin Count: "+bufferPoolMap.get(b).getPinCount());
+		   System.out.println("Unpin Count: "+bufferPoolMap.get(b).getUnpinCount());
+		   System.out.println("Read Count: "+bufferPoolMap.get(b).getReadCount());
+		   System.out.println("Write Count: "+bufferPoolMap.get(b).getWriteCount());
+		   i++;
+	   }
+   }
+   public void getBufferMapping(){ // get useful statistics about the buffers
+	   int i = 1;
+	   Map<Block,Buffer> bufferPoolMap = bufferMgr.getBufferPoolMap();
+	   System.out.println("Buffer Number\tBlock Number");
+	   for(Buffer b:bufferPoolMap.values()){
+		   System.out.println("\t"+b+"\t"+b.block().number());
+		   i++;
+	   }
    }
 }
