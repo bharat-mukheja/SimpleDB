@@ -19,6 +19,10 @@ public class Buffer {
    private int pins = 0;
    private int modifiedBy = -1;  // negative means not modified
    private int logSequenceNumber = -1; // negative means no corresponding log record
+   private int pinCount;
+   private int unpinCount;
+   private int readCount;
+   private int writeCount;
 
    /**
     * Creates a new buffer, wrapping a new 
@@ -34,8 +38,24 @@ public class Buffer {
     * {@link simpledb.server.SimpleDB#initFileAndLogMgr(String)} or
     * is called first.
     */
-   public Buffer() {}
+   public Buffer() {
+	   readCount = 0;
+	   writeCount = 0;
+	   pinCount = 0;
+	   unpinCount = 0;
+   }
+   /**
+    * Returns Log sequence number of the buffer's page.
+    * Here the LSN is equal to block number as per implmentation
+    * If an integer was not stored at that location,
+    * the behavior of the method is unpredictable.
+    * @param offset the byte offset of the page
+    * @return the integer value at that offset
+    */
    
+   public int getLogSequenceNumber() {
+	return logSequenceNumber;
+}
    /**
     * Returns the integer value at the specified offset of the
     * buffer's page.
@@ -44,7 +64,8 @@ public class Buffer {
     * @param offset the byte offset of the page
     * @return the integer value at that offset
     */
-   public int getInt(int offset) {
+   public int getInt(int offset){
+	  readCount++; // increment readCount on every read
       return contents.getInt(offset);
    }
 
@@ -57,6 +78,7 @@ public class Buffer {
     * @return the string value at that offset
     */
    public String getString(int offset) {
+	  readCount++; // increment readCount on every read to the buffer
       return contents.getString(offset);
    }
 
@@ -79,10 +101,12 @@ public class Buffer {
       if (lsn >= 0)
 	      logSequenceNumber = lsn;
       contents.setInt(offset, val);
+      writeCount++; // increment writeCount on every write to the buffer
    }
 
    /**
-    * Writes a string to the specified offset of the
+    * Writes a string to the specified offset of the      
+
     * buffer's page.
     * This method assumes that the transaction has already
     * written an appropriate log record.
@@ -100,6 +124,7 @@ public class Buffer {
       if (lsn >= 0)
 	      logSequenceNumber = lsn;
       contents.setString(offset, val);
+      writeCount++; // increment writeCount on every write to the buffer
    }
 
    /**
@@ -131,6 +156,7 @@ public class Buffer {
     */
    void pin() {
       pins++;
+      pinCount++;
    }
 
    /**
@@ -138,6 +164,7 @@ public class Buffer {
     */
    void unpin() {
       pins--;
+      unpinCount++;
    }
 
    /**
@@ -187,4 +214,37 @@ public class Buffer {
       blk = contents.append(filename);
       pins = 0;
    }
+
+public int getPinCount() {
+	return pinCount;
+}
+
+public void setPinCount(int pinCount) {
+	this.pinCount = pinCount;
+}
+
+public int getUnpinCount() {
+	return unpinCount;
+}
+
+public void setUnpinCount(int unpinCount) {
+	this.unpinCount = unpinCount;
+}
+
+public int getReadCount() {
+	return readCount;
+}
+
+public void setReadCount(int readCount) {
+	this.readCount = readCount;
+}
+
+public int getWriteCount() {
+	return writeCount;
+}
+
+public void setWriteCount(int writeCount) {
+	this.writeCount = writeCount;
+}
+   
 }

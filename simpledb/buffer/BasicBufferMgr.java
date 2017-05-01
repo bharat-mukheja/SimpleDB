@@ -2,15 +2,19 @@ package simpledb.buffer;
 
 import simpledb.file.*;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Manages the pinning and unpinning of buffers to blocks.
  * @author Edward Sciore
  *
  */
 class BasicBufferMgr {
-   private Buffer[] bufferpool;
-   private int numAvailable;
-   
+	private int numAvailable;
+	private Map<Block,Buffer> bufferPoolMap; // Changed BufferPool as it is not needed now
+	private int numNotAllocated;
+	
    /**
     * Creates a buffer manager having the specified number 
     * of buffer slots.
@@ -25,10 +29,10 @@ class BasicBufferMgr {
     * @param numbuffs the number of buffer slots to allocate
     */
    BasicBufferMgr(int numbuffs) {
-      bufferpool = new Buffer[numbuffs];
-      numAvailable = numbuffs;
-      for (int i=0; i<numbuffs; i++)
-         bufferpool[i] = new Buffer();
+	   bufferPoolMap = new HashMap<Block, Buffer>();
+	   numAvailable = numbuffs; 
+	   numNotAllocated = numbuffs;
+    
    }
    
    /**
@@ -36,7 +40,7 @@ class BasicBufferMgr {
     * @param txnum the transaction's id number
     */
    synchronized void flushAll(int txnum) {
-      for (Buffer buff : bufferpool)
+      for (Buffer buff : bufferPoolMap.values())
          if (buff.isModifiedBy(txnum))
          buff.flush();
    }
@@ -56,7 +60,14 @@ class BasicBufferMgr {
          buff = chooseUnpinnedBuffer();
          if (buff == null)
             return null;
-         buff.assignToBlock(blk);
+          if(buff.block()!= null){
+        	 
+        	 bufferPoolMap.remove(buff.block());
+        	 
+         }
+         
+        buff.assignToBlock(blk);
+        bufferPoolMap.put(buff.block(), buff);
       }
       if (!buff.isPinned())
          numAvailable--;
@@ -77,7 +88,13 @@ class BasicBufferMgr {
       Buffer buff = chooseUnpinnedBuffer();
       if (buff == null)
          return null;
+      if(buff.block()!= null){
+     	 
+     	 bufferPoolMap.remove(buff.block());
+      }
+      
       buff.assignToNew(filename, fmtr);
+      bufferPoolMap.put(buff.block(), buff);
       numAvailable--;
       buff.pin();
       return buff;
@@ -102,18 +119,70 @@ class BasicBufferMgr {
    }
    
    private Buffer findExistingBuffer(Block blk) {
-      for (Buffer buff : bufferpool) {
-         Block b = buff.block();
-         if (b != null && b.equals(blk))
-            return buff;
-      }
-      return null;
+	   try{
+	         Buffer b = bufferPoolMap.get(blk);//Since bufferPoolMap is a hash map, the buffer can be directly found using get. no need to iterate.
+	            return b;
+	      }
+	      catch(Exception e){
+	    	  return null;  
+	      }
+	      
    }
    
    private Buffer chooseUnpinnedBuffer() {
-      for (Buffer buff : bufferpool)
-         if (!buff.isPinned())
-         return buff;
-      return null;
+	   if(numNotAllocated > 0) // if buffer is not full 
+		  {
+			  Buffer buff = new Buffer();
+			  numNotAllocated--;
+			  return buff;
+		  }
+		  else
+		  {
+			  int max = -1;
+			  Buffer lsn_buff = null;
+			  for(Buffer buff : bufferPoolMap.values())  // MRM replacement strategy
+			  {
+				  if(!buff.isPinned())
+				  {
+					  int lsn = buff.getLogSequenceNumber();
+					  if((lsn != -1 && max == -1) || (lsn != -1 && max != -1 && lsn > max))
+					  {
+						  max = lsn;
+						  lsn_buff = buff;
+					  }
+				  }
+			  }
+			  if (max == -1){
+				  
+				  for(Buffer buff : bufferPoolMap.values())
+				  {
+					  if(!buff.isPinned())
+					  {
+						  int lsn = buff.getLogSequenceNumber();
+						  lsn_buff = buff;
+					  }
+				  	}
+			  }
+			  return lsn_buff; // buffer to replace
+   }
+}
+   public boolean containsMapping(Block blk){
+	   return bufferPoolMap.containsKey(blk);
+   }
+   
+   public Buffer getMapping(Block blk){
+	   return bufferPoolMap.get(blk);
+   }
+   
+   public void getStatistics(){ // get useful statistics about the buffers
+	   int i = 0;
+	   for(Block b:bufferPoolMap.keySet()){
+		   System.out.println("Buffer number "+ i);
+		   System.out.println("Pin Count: "+bufferPoolMap.get(b).getPinCount());
+		   System.out.println("Unpin Count: "+bufferPoolMap.get(b).getUnpinCount());
+		   System.out.println("Read Count: "+bufferPoolMap.get(b).getReadCount());
+		   System.out.println("Write Count: "+bufferPoolMap.get(b).getWriteCount());
+		   i++;
+	   }
    }
 }
